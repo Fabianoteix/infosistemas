@@ -194,7 +194,7 @@ sAttachment : string;
 //constante para o envio do email
 
 const
-sEmail  = 'fabianotcarvalho@gmail.com';
+sEmail  = 'fabiano.d14@yahoo.com';
 sTitulo = 'Cadastro de Cliente';
 
 
