@@ -92,6 +92,13 @@ implementation
 
 procedure TForm3.EditCEPExit(Sender: TObject);
 begin
+if Length(EditCEP.Text) <> 8 then
+begin
+  showmessage('Formato invalido, favor utilizar somente números');
+  EditCEP.SetFocus;
+  exit;
+end;
+
 if EditCEP.Text <> '' then
     GetCEP(editCep.Text)
     else
@@ -99,6 +106,7 @@ if EditCEP.Text <> '' then
     EditCEP.TextHint := 'Campo Obrigatório'
 
     end;
+
 end;
 
 //restinge o CEP para endadar somente numeros
@@ -152,9 +160,9 @@ begin
       Resposta := TStringStream.Create('');
 
       HTTP.Get('https://viacep.com.br/ws/' + CEP + '/json', Resposta);
-      if (HTTP.ResponseCode = 200) and (not(Utf8ToAnsi(Resposta.DataString) = '{'#$A'  "erro": true'#$A'}')) then
+      if (HTTP.ResponseCode = 200) and (not((Resposta.DataString) = '{'#$A'  "erro": true'#$A'}')) then
       begin
-          CepJonObj :=   TJSONObject.ParseJSONValue(TEncoding.ASCII.GetBytes( Utf8ToAnsi(Resposta.DataString)), 0) as TJSONObject;
+          CepJonObj :=   TJSONObject.ParseJSONValue(TEncoding.ASCII.GetBytes( (Resposta.DataString)), 0) as TJSONObject;
           CarregaCep(CepJonObj);
       end
       else
@@ -201,13 +209,12 @@ begin
   // Gera corpo do email
   sAttachment := ExtractFileDir(Application.ExeName) + '\temp.xml';
   msg := TStringList.Create;
-  msg.Add('Prezados,');
-  msg.Add('');
-  msg.Add('Em anexo XML contendo os dados do cadastrais do cliente:');
-  msg.Add('Nome: '+EditNome.Text);
-  msg.Add('CPF:'+EditCpf.text);
-  msg.Add('Telefon: '+EditTelefone.text);
-  msg.Add('Obrigado');
+  msg.Add('Prezados,<br>');
+  msg.Add('<br>Em anexo XML contendo os dados do cadastrais do cliente:<br>');
+  msg.Add('<br>Nome:'+EditNome.Text );
+  msg.Add('<br>CPF: '+EditCpf.text);
+  msg.Add('<br>Telefon: '+EditTelefone.text);
+  msg.Add('<br>Obrigado');
 
   // envia o email e exclui o arquivo xml do diretorio
  if EnviarEmail(sTitulo, sEmail, sAttachment , msg)
@@ -435,6 +442,13 @@ function Tform3.FormataFone(Fone: String): string;
 VAR I : Integer;
     ddd, prefix, tel : String;
 begin
+if ((Length(Fone) < 10) or (Length(Fone) > 11)) then
+    Begin
+      showMessage('Formato do Telefone invalido');
+      EditTelefone.SetFocus;
+      exit;
+    End;
+
   ddd := '';
   prefix := '';
   tel := '';
@@ -481,6 +495,22 @@ end;
 //Formata CPF
 function TForm3.FormataCPF(CPF: string): string;
 begin
+ if (CPF = '') then
+ Begin
+   ShowMessage('Campo Obrigatório');
+   EditCpf.SetFocus;
+   exit;
+ End;
+
+ if Length(CPF) <> 11 then
+ begin
+ showMessage('Formato do Telefone invalido');
+      EditTelefone.SetFocus;
+      EditCpf.SetFocus;
+      exit;
+ end;
+
+
 
   Result := Copy(CPF,1,3)+'.'+Copy(CPF,4,3)+'.'+Copy(CPF,7,3)+'-'+Copy(CPF,10,2);
 
