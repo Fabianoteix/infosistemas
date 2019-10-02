@@ -2,7 +2,7 @@ object Form3: TForm3
   Left = 0
   Top = 0
   Caption = 'Cadastro de Clientes'
-  ClientHeight = 524
+  ClientHeight = 484
   ClientWidth = 423
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -222,23 +222,23 @@ object Form3: TForm3
       TabOrder = 7
     end
   end
-  object Button1: TButton
+  object BtSair: TButton
     Left = 32
     Top = 448
     Width = 75
     Height = 25
     Caption = 'Sair'
     TabOrder = 6
-    OnClick = Button1Click
+    OnClick = BtSairClick
   end
-  object Button2: TButton
+  object BtEnviar: TButton
     Left = 328
     Top = 447
     Width = 75
     Height = 25
     Caption = 'Enviar'
     TabOrder = 7
-    OnClick = Button2Click
+    OnClick = BtEnviarClick
   end
   object DSCliente: TClientDataSet
     PersistDataPacket.Data = {

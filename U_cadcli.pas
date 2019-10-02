@@ -6,24 +6,9 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Mask, System.JSON, idHTTP, IdSSLOpenSSL,
   Data.DB, Datasnap.DBClient, Vcl.DBCtrls, Vcl.Grids, Vcl.DBGrids, Xml.xmldom,
-  Xml.XMLIntf, Xml.XMLDoc,   IniFiles,
-  IdComponent,
-  IdTCPConnection,
-  IdTCPClient,
-
-  IdBaseComponent,
-  IdMessage,
-  IdExplicitTLSClientServerBase,
-  IdMessageClient,
-  IdSMTPBase,
-  IdSMTP,
-  IdIOHandler,
-  IdIOHandlerSocket,
-  IdIOHandlerStack,
-  IdSSL,
-
-  IdAttachmentFile,
-  IdText;
+  Xml.XMLIntf, Xml.XMLDoc, IniFiles, IdComponent, IdTCPConnection, IdTCPClient, IdBaseComponent,
+  IdMessage, IdExplicitTLSClientServerBase, IdMessageClient, IdSMTPBase,  IdSMTP,  IdIOHandler,
+  IdIOHandlerSocket,  IdIOHandlerStack, IdSSL, IdAttachmentFile, IdText;
 
 type
   TForm3 = class(TForm)
@@ -41,8 +26,8 @@ type
     Label11: TLabel;
     Label12: TLabel;
     Label13: TLabel;
-    Button1: TButton;
-    Button2: TButton;
+    BtSair: TButton;
+    BtEnviar: TButton;
     DSCliente: TClientDataSet;
     DataSource1: TDataSource;
     DSClienteNome: TStringField;
@@ -76,10 +61,10 @@ type
     procedure FormCreate(Sender: TObject);
     procedure EditCEPExit(Sender: TObject);
     procedure EditCEPKeyPress(Sender: TObject; var Key: Char);
-    procedure Button2Click(Sender: TObject);
+    procedure BtEnviarClick(Sender: TObject);
     procedure EditTelefoneExit(Sender: TObject);
     procedure EditCpfExit(Sender: TObject);
-    procedure Button1Click(Sender: TObject);
+    procedure BtSairClick(Sender: TObject);
   private
     { Private declarations }
     procedure GetCEP(CEP:string);
@@ -103,7 +88,7 @@ implementation
 {$R *.dfm}
 
 
-
+// Verifica se o campo cep  está preenchido e consulta o CEP
 
 procedure TForm3.EditCEPExit(Sender: TObject);
 begin
@@ -116,30 +101,34 @@ if EditCEP.Text <> '' then
     end;
 end;
 
+//restinge o CEP para endadar somente numeros
 procedure TForm3.EditCEPKeyPress(Sender: TObject; var Key: Char);
 begin
 if Key <> #8 then begin
-      if not (Key in ['0'..'9']) then begin
+if not (CharInSet(Key,['0'..'9',#8])) then
          Key := #0;
       end;
-   end;
 end;
 
+//formata o Campo CPF
 procedure TForm3.EditCpfExit(Sender: TObject);
 begin
 EditCpf.Text := FormataCPF(EditCpf.Text);
 end;
 
+//Formata campo Telefone
 procedure TForm3.EditTelefoneExit(Sender: TObject);
 begin
 EditTelefone.Text := Formatafone(EditTelefone.Text);
 end;
 
+//Na costrução do FORM limpa todos os edits
 procedure TForm3.FormCreate(Sender: TObject);
 begin
     LimpaCampos;
 end;
 
+//utiliza a Tecla enter para passar para o proximo edit
 procedure TForm3.FormKeyPress(Sender: TObject; var Key: Char);
 begin
   if (Key = #13) then begin
@@ -148,25 +137,28 @@ begin
   end;
 end;
 
+//Consulta Webservice viacep.com.br eretorna um json
 procedure TForm3.GetCEP(CEP: string);
 var
    HTTP: TIdHTTP;
    IDSSLHandler : TIdSSLIOHandlerSocketOpenSSL;
-   Response: TStringStream;
-   LJsonObj: TJSONObject;
+   Resposta: TStringStream;
+   CepJonObj: TJSONObject;
 begin
    try
       HTTP := TIdHTTP.Create;
       IDSSLHandler := TIdSSLIOHandlerSocketOpenSSL.Create;
       HTTP.IOHandler := IDSSLHandler;
-      Response := TStringStream.Create('');
-      HTTP.Get('https://viacep.com.br/ws/' + CEP + '/json', Response);
-      if (HTTP.ResponseCode = 200) and (not(Utf8ToAnsi(Response.DataString) = '{'#$A'  "erro": true'#$A'}')) then
+      Resposta := TStringStream.Create('');
+
+      HTTP.Get('https://viacep.com.br/ws/' + CEP + '/json', Resposta);
+      if (HTTP.ResponseCode = 200) and (not(Utf8ToAnsi(Resposta.DataString) = '{'#$A'  "erro": true'#$A'}')) then
       begin
-          LJsonObj :=   TJSONObject.ParseJSONValue(TEncoding.ASCII.GetBytes( Utf8ToAnsi(Response.DataString)), 0) as TJSONObject;
-          CarregaCep(LJsonObj);
+          CepJonObj :=   TJSONObject.ParseJSONValue(TEncoding.ASCII.GetBytes( Utf8ToAnsi(Resposta.DataString)), 0) as TJSONObject;
+          CarregaCep(CepJonObj);
       end
       else
+
         begin
           showMessage('CEP não encontrado ou inválido ');
           editCEP.SetFocus;
@@ -180,20 +172,34 @@ begin
    end;
 end;
 
-procedure TForm3.Button1Click(Sender: TObject);
+//botão de sair da aplicação
+procedure TForm3.BtSairClick(Sender: TObject);
 begin
 Form3.Close;
 end;
 
-procedure TForm3.Button2Click(Sender: TObject);
+
+procedure TForm3.BtEnviarClick(Sender: TObject);
 var
 msg : Tstrings;
+sAttachment : string;
+//constante para o envio do email
+
+const
+sEmail  = 'fabianotcarvalho@gmail.com';
+sTitulo = 'Cadastro de Cliente';
+
 
 begin
+//Verifica se todos os campos estão preenchidos
 if Not (ValidaCampos()) then
 begin
+  // grava o registro em memoria atravez do TClienteDataSet
   GravaBanco;
+  // Gera um arquivo xml grava no diretorio do aplicativo
   Geraxml;
+  // Gera corpo do email
+  sAttachment := ExtractFileDir(Application.ExeName) + '\temp.xml';
   msg := TStringList.Create;
   msg.Add('Prezados,');
   msg.Add('');
@@ -203,7 +209,8 @@ begin
   msg.Add('Telefon: '+EditTelefone.text);
   msg.Add('Obrigado');
 
- if EnviarEmail('Cadastro de Cliente', 'fabianotcarvalho@gmail.com', ExtractFileDir(Application.ExeName) + '\temp.xml', msg)
+  // envia o email e exclui o arquivo xml do diretorio
+ if EnviarEmail(sTitulo, sEmail, sAttachment , msg)
   then
   begin
         ShowMessage('Enviado com sucesso!');
@@ -216,6 +223,7 @@ begin
 end;
 end;
 
+// Carrega os dados do Json para os edit
 procedure TForm3.CarregaCep(JSON: TJSONObject);
 begin
    EditLogradouro.Text := JSON.Get('logradouro').JsonValue.Value;
@@ -226,7 +234,7 @@ begin
 
 end;
 
-
+ // limpa todos os campos
 procedure TForm3.LimpaCampos;
 begin
    EditNome.Text  := '';
@@ -246,25 +254,27 @@ begin
 
 end;
 
+// Grava os dados na memoria
 Procedure TForm3.GravaBanco;
 begin
   DSCliente.Insert;
-  DSClienteNome.Value := EditNome.Text;
-  DSClienteIdentidade.Value := EditIdentidade.Text;
-  DSClientecpf.Value := EditCPF.Text;
-  DSClientefone.Value := EditTelefone.Text;
-  DSClienteEmail.Value := EditEmail.Text;
-  DSClienteCEP.Value := EditCep.Text;
-  DSClienteLogradouro.Value := EditLogradouro.Text;
-  DSClienteNumero.Value := EditNumero.Text;
-  DSClienteComplemento.Value := EditComplemento.Text;
-  DSClienteBairro.Value := EditBairro.Text;
-  DSClienteCidade.Value := EditCidade.Text;
-  DSClienteEstado.Value := EditEstado.Text;
-  DSClientePais.Value := EditPais.Text;
+  DSClienteNome.Value := AnsiString(EditNome.Text);
+  DSClienteIdentidade.Value := AnsiString(EditIdentidade.Text);
+  DSClientecpf.Value := AnsiString(EditCPF.Text);
+  DSClientefone.Value := AnsiString(EditTelefone.Text);
+  DSClienteEmail.Value := AnsiString(EditEmail.Text);
+  DSClienteCEP.Value := AnsiString(EditCep.Text);
+  DSClienteLogradouro.Value := AnsiString(EditLogradouro.Text);
+  DSClienteNumero.Value := AnsiString(EditNumero.Text);
+  DSClienteComplemento.Value := AnsiString(EditComplemento.Text);
+  DSClienteBairro.Value := AnsiString(EditBairro.Text);
+  DSClienteCidade.Value := AnsiString(EditCidade.Text);
+  DSClienteEstado.Value := AnsiString(EditEstado.Text);
+  DSClientePais.Value := AnsiString(EditPais.Text);
   DSCliente.Post;
 end;
 
+//Gera o arquivo XML
 Procedure TForm3.geraXML;
 var
 XMLDocument1 : TXMLDocument;
@@ -285,23 +295,20 @@ begin
   Cliente.AddChild('CEP').Text :=  EditCep.Text;
   Cliente.AddChild('Logradouro').Text := EditLogradouro.Text;
   Cliente.AddChild('Numero').Text :=  EditNumero.Text;
-  Cliente.AddChild('Complemento').Text :=  EditNumero.Text;
+  Cliente.AddChild('Complemento').Text :=  Editcomplemento.Text;
   Cliente.AddChild('Bairro').Text := EditBairro.Text;
   Cliente.AddChild('Cidade').Text  := EditCidade.Text;
   Cliente.AddChild('Estado').Text  := EditEstado.Text;
   Cliente.AddChild('Pais').Text  := EditPais.Text;
   XMLDocument1.SaveToFile(ExtractFileDir(Application.ExeName) + '\temp.xml');
   XMLDocument1.Active := false;
-//  XMLDocument1.Free;
-
-
-
-
-
 
 
 end;
 
+//Função para enviar émail utilizando a o servidor yahoo os parametros estao no arquivo config.ini
+//na pasta do executavel. esta rotina utiliza duas dll que tambem se encontra na pasta junto com o
+//aplicativo
 function Tform3.EnviarEmail(const AAssunto, ADestino, AAnexo: String; ACorpo: TStrings): Boolean;
 var
   IniFile              : TIniFile;
@@ -311,7 +318,6 @@ var
   iPort                : Integer;
   sUserName            : String;
   sPassword            : String;
-
   idMsg                : TIdMessage;
   IdText               : TIdText;
   idSMTP               : TIdSMTP;
@@ -319,6 +325,8 @@ var
 begin
   try
     try
+      iPort :=0;
+
       //Criação e leitura do arquivo INI com as configurações
       IniFile                          := TIniFile.Create(ExtractFilePath(ParamStr(0)) + 'Config.ini');
       sFrom                            := IniFile.ReadString('Email' , 'From'     , sFrom);
@@ -337,7 +345,6 @@ begin
       idMsg                            := TIdMessage.Create(Self);
       idMsg.CharSet                    := 'utf-8';
       idMsg.Encoding                   := meMIME;
-   //   idMsg.From.Name                  := 'TDevRocks Newsletter';
       idMsg.From.Address               := sFrom;
       idMsg.Priority                   := mpNormal;
       idMsg.Subject                    := AAssunto;
@@ -383,16 +390,15 @@ begin
         end;
       end;
 
-      //Depois de tudo pronto, desconecta do servidor SMTP
+      // desconecta do servidor SMTP
       if IdSMTP.Connected then
         IdSMTP.Disconnect;
 
       Result := True;
     finally
-      IniFile.Free;
-
+  //    IniFile.Free;
+      FreeAndNil(IniFile);
       UnLoadOpenSSLLibrary;
-
       FreeAndNil(idMsg);
       FreeAndNil(IdSSLIOHandlerSocket);
       FreeAndNil(idSMTP);
@@ -406,11 +412,12 @@ end;
 
 
 
-
+//valida todos os edits caso não tenha sido preenchido
 function TForm3.ValidaCampos: Boolean;
 var
   I: Integer;
 begin
+Result := false;
   for I := 0 to ComponentCount - 1 do
   begin
     if Components[I].ClassType = TEdit then
@@ -420,10 +427,10 @@ begin
       TEdit(Components[I]).TextHint := 'Campo Obrigatório';
       Exit;
     end;
-    
   end;
 end;
 
+//Formata Telefone de acordo com o tamanho digitado
 function Tform3.FormataFone(Fone: String): string;
 VAR I : Integer;
     ddd, prefix, tel : String;
@@ -471,6 +478,7 @@ begin
   Result := ddd + prefix + tel;
 end;
 
+//Formata CPF
 function TForm3.FormataCPF(CPF: string): string;
 begin
 
